@@ -173,7 +173,7 @@ This device costs ₹8,200 and takes 3 seconds.
 ## Team
 
 **Team Velocity**  
-Built at [Hackathon Name] · March 2026
+Built at Hack Europa 2.0 · March 2026
 
 ---
 
