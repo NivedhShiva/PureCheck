@@ -2,11 +2,11 @@
 
 import cv2
 import numpy as np
-import tensorflow as tf
+from ai_edge_litert.interpreter import Interpreter
 
 # Load model
 print("Loading model...")
-interpreter = tf.lite.Interpreter(model_path='food_model.tflite')
+interpreter = Interpreter(model_path='food_model.tflite')
 interpreter.allocate_tensors()
 input_details  = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
