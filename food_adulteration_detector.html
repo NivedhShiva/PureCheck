@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Velocity — Food Adulteration Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --green:#1D9E75;--green-l:#5DCAA5;--green-dim:rgba(29,158,117,0.12);--green-b:rgba(29,158,117,0.28);
+  --red:#E24B4A;--red-l:#F09595;--red-dim:rgba(226,75,74,0.12);--red-b:rgba(226,75,74,0.28);
+  --bg:#080c10;--bg2:#0d1117;--bg3:#131920;--bg4:#1a2130;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e6edf3;--text2:#8b949e;--text3:#3d4a58;
+}
+html{scroll-behavior:smooth;}
+body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* noise */
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.5;}
+
+/* header */
+header{position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(8,12,16,0.88);}
+.hdr{max-width:860px;margin:0 auto;padding:0 24px;height:62px;display:flex;align-items:center;justify-content:space-between;}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--text);text-decoration:none;}
+.logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--green),#085041);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;}
+.clock-pill{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:6px 14px;}
+.clock-date{font-size:13px;color:var(--text2);font-family:'DM Mono',monospace;}
+.clock-sep{width:1px;height:16px;background:var(--border2);}
+.clock-time{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text);letter-spacing:0.05em;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.6s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* main */
+main{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:40px 24px 80px;}
+
+/* hero */
+.hero{text-align:center;margin-bottom:44px;}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:var(--green-dim);border:1px solid var(--green-b);color:var(--green-l);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:20px;}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(30px,5.5vw,52px);font-weight:800;line-height:1.1;margin-bottom:14px;background:linear-gradient(140deg,var(--text) 40%,var(--green-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero p{font-size:15px;color:var(--text2);max-width:480px;margin:0 auto;line-height:1.7;}
+
+/* grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:640px){.grid{grid-template-columns:1fr;}}
+
+/* cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;transition:border-color .25s;}
+.card:hover{border-color:var(--border2);}
+.card-head{padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.card-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);}
+.card-body{padding:20px;}
+
+/* camera */
+.video-wrap{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+#video{width:100%;height:100%;object-fit:cover;display:none;}
+.cam-off{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text3);}
+.cam-off svg{width:44px;height:44px;stroke:var(--text3);fill:none;stroke-width:1.4;}
+.cam-off span{font-size:13px;}
+
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:scan 2.8s linear infinite;display:none;top:0;}
+@keyframes scan{0%{top:0}100%{top:100%}}
+
+.corner{position:absolute;width:22px;height:22px;display:none;}
+.corner.tl{top:10px;left:10px;border-top:2px solid var(--green-l);border-left:2px solid var(--green-l);border-radius:4px 0 0 0;}
+.corner.tr{top:10px;right:10px;border-top:2px solid var(--green-l);border-right:2px solid var(--green-l);border-radius:0 4px 0 0;}
+.corner.bl{bottom:10px;left:10px;border-bottom:2px solid var(--green-l);border-left:2px solid var(--green-l);border-radius:0 0 0 4px;}
+.corner.br{bottom:10px;right:10px;border-bottom:2px solid var(--green-l);border-right:2px solid var(--green-l);border-radius:0 0 4px 0;}
+
+.live-badge{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(226,75,74,0.88);color:#fff;font-size:10px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:.06em;padding:3px 10px;border-radius:100px;display:none;align-items:center;gap:5px;}
+.live-badge .dot{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink 1s infinite;}
+
+.overlay-result{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;display:none;justify-content:space-between;align-items:center;backdrop-filter:blur(10px);}
+.overlay-result.pure{background:rgba(4,52,44,0.88);border-top:1px solid var(--green-b);}
+.overlay-result.adulterated{background:rgba(50,10,10,0.88);border-top:1px solid var(--red-b);}
+.ov-label{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;}
+.ov-label.pure{color:var(--green-l);}
+.ov-label.adulterated{color:var(--red-l);}
+.ov-conf{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);}
+.ov-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);}
+
+/* cam buttons */
+.btn-row{display:flex;gap:10px;}
+.btn{flex:1;border:none;border-radius:12px;padding:13px 10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;}
+.btn-green{background:linear-gradient(135deg,var(--green),#085041);color:#fff;}
+.btn-green:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,.28);}
+.btn-ghost{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);}
+.btn-ghost:hover{color:var(--text);background:var(--bg4);}
+.btn-red{background:var(--red-dim);border:1px solid var(--red-b);color:var(--red-l);}
+.btn-red:hover{background:rgba(226,75,74,.2);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important;}
+
+/* capture btn */
+.capture-btn{width:100%;margin-top:12px;border:none;border-radius:12px;padding:13px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);transition:all .2s;display:none;align-items:center;justify-content:center;gap:8px;}
+.capture-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+.capture-btn:hover{background:var(--bg4);color:var(--text);}
+.capture-btn.analyzing{color:var(--green-l);border-color:var(--green-b);}
+
+/* upload */
+.upload-zone{border:2px dashed var(--border2);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:all .25s;background:transparent;margin-bottom:16px;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:var(--green-dim);}
+.upload-icon{width:48px;height:48px;border-radius:14px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.upload-icon svg{width:24px;height:24px;stroke:var(--text2);fill:none;stroke-width:1.6;}
+.upload-zone:hover .upload-icon svg,.upload-zone.drag .upload-icon svg{stroke:var(--green-l);}
+.uz-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.uz-hint{font-size:12px;color:var(--text2);}
+#fileInput{display:none;}
+
+.preview-wrap{display:none;margin-bottom:16px;border-radius:14px;overflow:hidden;aspect-ratio:4/3;position:relative;}
+.preview-wrap img{width:100%;height:100%;object-fit:cover;}
+.preview-badge{position:absolute;top:10px;right:10px;background:rgba(8,12,16,.8);border:1px solid var(--border2);border-radius:8px;padding:4px 10px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);}
+
+/* result card */
+.result-box{border-radius:14px;padding:16px;display:none;animation:slideUp .35s ease;margin-top:4px;}
+.result-box.pure{background:rgba(4,52,44,0.5);border:1px solid var(--green-b);}
+.result-box.adulterated{background:rgba(50,10,10,0.5);border:1px solid var(--red-b);}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.rb-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.rb-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;font-family:'Syne',sans-serif;font-weight:800;}
+.rb-icon.pure{background:var(--green-dim);}
+.rb-icon.adulterated{background:var(--red-dim);}
+.rb-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;}
+.rb-title.pure{color:var(--green-l);}
+.rb-title.adulterated{color:var(--red-l);}
+.rb-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+
+.conf-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px;}
+.conf-track{height:6px;background:rgba(255,255,255,0.07);border-radius:100px;overflow:hidden;margin-bottom:14px;}
+.conf-fill{height:100%;border-radius:100px;transition:width 1s ease;}
+.conf-fill.pure{background:linear-gradient(90deg,var(--green),var(--green-l));}
+.conf-fill.adulterated{background:linear-gradient(90deg,#A32D2D,var(--red));}
+
+.meta-row{display:flex;gap:8px;flex-wrap:wrap;}
+.meta-chip{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);}
+
+/* loading spinner */
+.spin-wrap{display:none;flex-direction:column;align-items:center;gap:12px;padding:28px 0;}
+.spinner{width:36px;height:36px;border:2.5px solid var(--green-dim);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-label{font-size:13px;color:var(--text2);}
+.spin-step{font-size:12px;color:var(--green-l);font-family:'DM Mono',monospace;}
+
+/* how it works */
+.how{margin-top:40px;border:1px solid var(--border);border-radius:20px;overflow:hidden;}
+.how-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.how-head span{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);}
+.model-tag{font-size:11px;font-family:'DM Mono',monospace;color:var(--green-l);background:var(--green-dim);border:1px solid var(--green-b);border-radius:6px;padding:3px 9px;}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);}
+@media(max-width:600px){.steps{grid-template-columns:1fr 1fr;}}
+.step{padding:20px;border-right:1px solid var(--border);}
+.step:last-child{border-right:none;}
+@media(max-width:600px){.step:nth-child(2){border-right:none;}.step:nth-child(3){border-top:1px solid var(--border);}.step:nth-child(4){border-top:1px solid var(--border);border-right:none;}}
+.step-n{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--green-l);letter-spacing:.1em;margin-bottom:8px;}
+.step-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.step-desc{font-size:11px;color:var(--text2);line-height:1.55;}
+
+canvas{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr">
+    <a class="logo" href="#">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      Team Velocity
+    </a>
+    <div class="clock-pill">
+      <span class="live-dot"></span>
+      <span class="clock-date" id="clockDate"></span>
+      <div class="clock-sep"></div>
+      <span class="clock-time" id="clockTime"></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="hero-badge">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Real-Time Detection · MobileNetV2
+    </div>
+    <h1>Food Adulteration<br>Detector</h1>
+
+  </div>
+
+  <div class="grid">
+
+    <!-- CAMERA CARD -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Live Camera</span>
+        <span id="camStatus" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">OFFLINE</span>
+      </div>
+      <div class="card-body">
+        <div class="video-wrap" id="videoWrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas"></canvas>
+          <div class="corner tl" id="ctl"></div>
+          <div class="corner tr" id="ctr"></div>
+          <div class="corner bl" id="cbl"></div>
+          <div class="corner br" id="cbr"></div>
+          <div class="scan-line" id="scanLine"></div>
+          <div class="live-badge" id="liveBadge"><span class="dot"></span>LIVE</div>
+          <div class="cam-off" id="camOff">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Camera offline</span>
+          </div>
+          <div class="overlay-result" id="overlayResult">
+            <div>
+              <div class="ov-label" id="ovLabel">—</div>
+              <div class="ov-time" id="ovTime">—</div>
+            </div>
+            <div class="ov-conf" id="ovConf">—</div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-bottom:10px;">
+          <button class="btn btn-green" id="startBtn" onclick="startCamera()">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            Start
+          </button>
+          <button class="btn btn-red" id="stopBtn" onclick="stopCamera()" disabled>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+            Stop
+          </button>
+        </div>
+
+        <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M20 7h-3l-2-3H9L7 7H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+          Capture &amp; Analyze
+        </button>
+
+        <!-- cam spinner -->
+        <div class="spin-wrap" id="camSpinner">
+          <div class="spinner"></div>
+          <div class="spin-label">Analyzing...</div>
+          <div class="spin-step" id="camSpinStep">Loading model</div>
+        </div>
+
+        <!-- cam result -->
+        <div class="result-box" id="camResult">
+          <div class="rb-top">
+            <div class="rb-icon" id="camRIcon"></div>
+            <div>
+              <div class="rb-title" id="camRTitle"></div>
+              <div class="rb-sub" id="camRSub"></div>
+            </div>
+          </div>
+          <div class="conf-row"><span>Confidence</span><span id="camRConfText"></span></div>
+          <div class="conf-track"><div class="conf-fill" id="camRFill" style="width:0%"></div></div>
+          <div class="meta-row">
+            <span class="meta-chip" id="camRModel">MobileNetV2</span>
+            <span class="meta-chip" id="camRTime"></span>
+            <span class="meta-chip">224×224px</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD CARD -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Upload Image</span>
+        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">PNG / JPG</span>
+      </div>
+      <div class="card-body">
+
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="uz-title">Drop food image here</div>
+          <div class="uz-hint">or click to browse · max 10MB</div>
+          <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="preview-wrap" id="previewWrap">
+          <img id="previewImg" alt="Preview">
+          <div class="preview-badge" id="previewBadge"></div>
+        </div>
+
+        <button class="btn btn-green" id="analyzeBtn" onclick="analyzeUpload()" disabled style="width:100%;margin-bottom:10px;display:flex;">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Analyze Image
+        </button>
+
+        <button class="btn btn-ghost" onclick="resetUpload()" style="width:100%;display:flex;">
+          <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.85"/></svg>
+          Reset
+        </button>
+
+        <!-- upload spinner -->
+        <div class="spin-wrap" id="upSpinner">
+          <div class="spinner"></div>
+          <div class="spin-label">Analyzing image...</div>
+          <div class="spin-step" id="upSpinStep">Preprocessing</div>
+        </div>
+
+        <!-- upload result -->
+        <div class="result-box" id="upResult">
+          <div class="rb-top">
+            <div class="rb-icon" id="upRIcon"></div>
+            <div>
+              <div class="rb-title" id="upRTitle"></div>
+              <div class="rb-sub" id="upRSub"></div>
+            </div>
+          </div>
+          <div class="conf-row"><span>Confidence</span><span id="upRConfText"></span></div>
+          <div class="conf-track"><div class="conf-fill" id="upRFill" style="width:0%"></div></div>
+          <div class="meta-row">
+            <span class="meta-chip">MobileNetV2</span>
+            <span class="meta-chip" id="upRTime"></span>
+            <span class="meta-chip">224×224px</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- HOW IT WORKS -->
+  <div class="how">
+    <div class="how-head">
+      <span>How it works</span>
+      <span class="model-tag">MobileNetV2 · TFLite</span>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">01</div>
+        <div class="step-name">Image Input</div>
+        <div class="step-desc">Camera frame or uploaded image resized to 224×224 px and normalized to float32 [0–1].</div>
+      </div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <div class="step-name">Feature Extraction</div>
+        <div class="step-desc">MobileNetV2 pretrained on ImageNet extracts deep visual features via depthwise convolutions.</div>
+      </div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <div class="step-name">Classification</div>
+        <div class="step-desc">Dense layers classify the sample as Pure or Adulterated using softmax probability output.</div>
+      </div>
+      <div class="step">
+        <div class="step-n">04</div>
+        <div class="step-name">TFLite Deploy</div>
+        <div class="step-desc">Model is quantized and exported as .tflite for fast on-device inference on Android/iOS.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── CLOCK ──
+function tick() {
+  const now = new Date();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('clockDate').textContent =
+    days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+  document.getElementById('clockTime').textContent =
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0') + ':' +
+    String(now.getSeconds()).padStart(2,'0');
+}
+tick(); setInterval(tick, 1000);
+
+function nowTime() {
+  const n = new Date();
+  return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+}
+
+// ── CAMERA ──
+let stream = null;
+let isAnalyzing = false;
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('camOff').style.display = 'none';
+    document.getElementById('scanLine').style.display = 'block';
+    document.getElementById('liveBadge').style.display = 'flex';
+    ['ctl','ctr','cbl','cbr'].forEach(id => document.getElementById(id).style.display = 'block');
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    document.getElementById('captureBtn').style.display = 'flex';
+    document.getElementById('camStatus').textContent = 'ONLINE';
+    document.getElementById('camStatus').style.color = 'var(--green-l)';
+  } catch(e) {
+    alert('Camera access denied or unavailable. Please allow camera permission in your browser.');
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const video = document.getElementById('video');
+  video.style.display = 'none';
+  video.srcObject = null;
+  document.getElementById('camOff').style.display = 'flex';
+  document.getElementById('scanLine').style.display = 'none';
+  document.getElementById('liveBadge').style.display = 'none';
+  ['ctl','ctr','cbl','cbr'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('captureBtn').style.display = 'none';
+  document.getElementById('overlayResult').style.display = 'none';
+  document.getElementById('camResult').style.display = 'none';
+  document.getElementById('camSpinner').style.display = 'none';
+  document.getElementById('camStatus').textContent = 'OFFLINE';
+  document.getElementById('camStatus').style.color = 'var(--text3)';
+}
+
+const camSteps = ['Loading model...','Preprocessing frame...','Running inference...','Computing confidence...'];
+
+async function captureAndAnalyze() {
+  if (!stream || isAnalyzing) return;
+  isAnalyzing = true;
+
+  const captureBtn = document.getElementById('captureBtn');
+  captureBtn.classList.add('analyzing');
+  captureBtn.textContent = 'Analyzing...';
+
+  const spinner = document.getElementById('camSpinner');
+  spinner.style.display = 'flex';
+  document.getElementById('camResult').style.display = 'none';
+
+  // Capture frame from video
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  canvas.width = 224; canvas.height = 224;
+  canvas.getContext('2d').drawImage(video, 0, 0, 224, 224);
+  const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+
+  let si = 0;
+  const iv = setInterval(() => {
+    si = (si + 1) % camSteps.length;
+    document.getElementById('camSpinStep').textContent = camSteps[si];
+  }, 650);
+
+  try {
+    const res = await fetch('http://localhost:5000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image })
+    });
+    const data = await res.json();
+    clearInterval(iv);
+    spinner.style.display = 'none';
+
+    if (data.error) { alert('Error: ' + data.error); }
+    else {
+      const isPure = data.safe;
+      const conf   = data.confidence;
+      const t      = nowTime();
+      showCamResult(isPure, conf, t);
+    }
+  } catch(e) {
+    clearInterval(iv);
+    spinner.style.display = 'none';
+    alert('Could not reach Flask server.\nMake sure app.py is running on localhost:5000');
+  }
+
+  captureBtn.classList.remove('analyzing');
+  captureBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M20 7h-3l-2-3H9L7 7H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg> Capture &amp; Analyze';
+  isAnalyzing = false;
+}
+
+function showCamResult(isPure, conf, t) {
+  const label = isPure ? 'pure' : 'adulterated';
+
+  // overlay
+  const ov = document.getElementById('overlayResult');
+  ov.className = 'overlay-result ' + label;
+  ov.style.display = 'flex';
+  document.getElementById('ovLabel').className = 'ov-label ' + label;
+  document.getElementById('ovLabel').textContent = isPure ? 'Pure Food' : 'Adulterated';
+  document.getElementById('ovTime').textContent = t;
+  document.getElementById('ovConf').textContent = conf.toFixed(1) + '%';
+
+  // result box
+  const box = document.getElementById('camResult');
+  box.className = 'result-box ' + label;
+  box.style.display = 'block';
+  document.getElementById('camRIcon').className = 'rb-icon ' + label;
+  document.getElementById('camRIcon').textContent = isPure ? '✓' : '✗';
+  document.getElementById('camRTitle').className = 'rb-title ' + label;
+  document.getElementById('camRTitle').textContent = isPure ? 'Pure Food' : 'Adulterated Food';
+  document.getElementById('camRSub').textContent = isPure ? 'No adulterants detected' : 'Possible adulteration — verify manually';
+  document.getElementById('camRConfText').textContent = conf.toFixed(1) + '%';
+  const fill = document.getElementById('camRFill');
+  fill.className = 'conf-fill ' + label;
+  fill.style.width = '0%';
+  setTimeout(() => { fill.style.width = conf.toFixed(1) + '%'; }, 60);
+  document.getElementById('camRTime').textContent = t;
+}
+
+// ── UPLOAD ──
+let selectedFile = null;
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  selectedFile = f;
+  const url = URL.createObjectURL(f);
+  document.getElementById('previewImg').src = url;
+  document.getElementById('previewBadge').textContent = nowTime();
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('upResult').style.display = 'none';
+});
+
+const uz = document.getElementById('uploadZone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith('image/')) return;
+  selectedFile = f;
+  document.getElementById('fileInput').files = e.dataTransfer.files;
+  const url = URL.createObjectURL(f);
+  document.getElementById('previewImg').src = url;
+  document.getElementById('previewBadge').textContent = nowTime();
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('upResult').style.display = 'none';
+});
+
+const upSteps = ['Loading model...','Resizing to 224×224...','Normalizing pixels...','Running inference...'];
+
+async function analyzeUpload() {
+  if (!selectedFile) return;
+  document.getElementById('upSpinner').style.display = 'flex';
+  document.getElementById('upResult').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+
+  let si = 0;
+  const iv = setInterval(() => {
+    si = (si + 1) % upSteps.length;
+    document.getElementById('upSpinStep').textContent = upSteps[si];
+  }, 600);
+
+  // Convert file to base64
+  const base64Image = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.readAsDataURL(selectedFile);
+  });
+
+  try {
+    const res = await fetch('http://localhost:5000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image })
+    });
+    const data = await res.json();
+    clearInterval(iv);
+    document.getElementById('upSpinner').style.display = 'none';
+
+    if (data.error) { alert('Error: ' + data.error); }
+    else {
+      const isPure = data.safe;
+      const conf   = data.confidence;
+      const t      = nowTime();
+      const label  = isPure ? 'pure' : 'adulterated';
+
+      const box = document.getElementById('upResult');
+      box.className = 'result-box ' + label;
+      box.style.display = 'block';
+      document.getElementById('upRIcon').className = 'rb-icon ' + label;
+      document.getElementById('upRIcon').textContent = isPure ? '✓' : '✗';
+      document.getElementById('upRTitle').className = 'rb-title ' + label;
+      document.getElementById('upRTitle').textContent = isPure ? 'Pure Food' : 'Adulterated Food';
+      document.getElementById('upRSub').textContent = isPure ? 'No adulterants detected' : 'Possible adulteration — verify manually';
+      document.getElementById('upRConfText').textContent = conf.toFixed(1) + '%';
+      const fill = document.getElementById('upRFill');
+      fill.className = 'conf-fill ' + label;
+      fill.style.width = '0%';
+      setTimeout(() => { fill.style.width = conf.toFixed(1) + '%'; }, 60);
+      document.getElementById('upRTime').textContent = t;
+    }
+  } catch(e) {
+    clearInterval(iv);
+    document.getElementById('upSpinner').style.display = 'none';
+    alert('Could not reach Flask server.\nMake sure app.py is running on localhost:5000');
+  }
+
+  document.getElementById('analyzeBtn').disabled = false;
+}
+
+function resetUpload() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('uploadZone').style.display = 'block';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('upResult').style.display = 'none';
+  document.getElementById('upSpinner').style.display = 'none';
+}
+</script>
+</body>
+</html>

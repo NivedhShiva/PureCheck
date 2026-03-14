@@ -1,73 +1,84 @@
-# detect.py
+# detect.py — Windows version with live preview
 
 import cv2
 import numpy as np
-from ai_edge_litert.interpreter import Interpreter
+import tensorflow as tf
 
 # Load model
 print("Loading model...")
-model = Interpreter(model_path='food_model.tflite')
-model.allocate_tensors()
-input_details  = model.get_input_details()
-output_details = model.get_output_details()
+interpreter = tf.lite.Interpreter(model_path='food_model.tflite')
+interpreter.allocate_tensors()
+input_details  = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 print("Model loaded ✅")
 
 class_names = ['adulterated', 'pure']
+result     = "Waiting..."
+confidence = 0.0
 
-# Try camera index 0 then 1
-cam = None
-for index in [0, 1, 2]:
-    cap = cv2.VideoCapture(index)
-    if cap.isOpened():
-        cam = cap
-        print(f"Camera found on index {index} ✅")
+# Start camera
+cam = cv2.VideoCapture(1)
+if not cam.isOpened():
+    cam = cv2.VideoCapture(1)
+if not cam.isOpened():
+    print("❌ No camera found")
+    exit()
+
+print("Camera ready ✅")
+print("Press SPACE to scan, Q to quit")
+
+frame_count = 0
+
+while True:
+    ret, frame = cam.read()
+    if not ret:
+        print("❌ Camera read failed")
         break
-    cap.release()
 
-if cam is None:
-    print("❌ No camera detected — check USB webcam connection")
-    exit()
+    frame_count += 1
 
-# Skip first 5 frames
-for _ in range(5):
-    cam.read()
+    # Run inference every 10th frame
+    if frame_count % 10 == 0:
+        img = cv2.resize(frame, (224, 224))
+        img = img.astype(np.float32) / 255.0
+        img = np.expand_dims(img, axis=0)
 
-print("\nPlace sample in front of camera.")
-print("Press ENTER to scan.")
-input()
+        interpreter.set_tensor(input_details[0]['index'], img)
+        interpreter.invoke()
+        output = interpreter.get_tensor(output_details[0]['index'])
 
-ret, frame = cam.read()
-if not ret or frame is None:
-    print("❌ Could not capture frame — check camera")
-    cam.release()
-    exit()
+        class_index = np.argmax(output[0])
+        confidence  = np.max(output[0]) * 100
+        result      = class_names[class_index]
 
-print("Frame captured ✅")
+    # Draw result on live frame
+    if result == 'pure':
+        color = (0, 255, 0)      # green
+        label = f"PURE - {confidence:.1f}%"
+    elif result == 'adulterated':
+        color = (0, 0, 255)      # red
+        label = f"ADULTERATED - {confidence:.1f}%"
+    else:
+        color = (255, 255, 255)  # white
+        label = result
 
-# Save captured frame so you can verify what camera saw
-cv2.imwrite('last_capture.jpg', frame)
-print("Saved last_capture.jpg — check what camera saw")
+    # Draw background box behind text
+    cv2.rectangle(frame, (0, 0), (400, 60), (0, 0, 0), -1)
 
-# Preprocess
-img = cv2.resize(frame, (224, 224))
-img = img.astype(np.float32) / 255.0
-img = np.expand_dims(img, axis=0)
+    # Draw result text
+    cv2.putText(
+        frame, label,
+        (10, 40),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.2, color, 2
+    )
 
-# Run inference
-model.set_tensor(input_details[0]['index'], img)
-model.invoke()
-output = model.get_tensor(output_details[0]['index'])
+    # Show live feed
+    cv2.imshow('PureCheck — Food Adulteration Detector', frame)
 
-# Result
-class_index = np.argmax(output[0])
-confidence  = np.max(output[0]) * 100
-result      = class_names[class_index]
-
-print("\n" + "="*30)
-if result == 'pure':
-    print(f"✅ PURE — {confidence:.1f}% confidence")
-else:
-    print(f"❌ ADULTERATED — {confidence:.1f}% confidence")
-print("="*30)
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        break
 
 cam.release()
+cv2.destroyAllWindows()
